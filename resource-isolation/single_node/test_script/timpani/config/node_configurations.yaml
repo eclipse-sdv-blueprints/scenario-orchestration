@@ -1,0 +1,15 @@
+# TTRT Global Scheduler - Node Configuration File
+# Defines hardware specs and available resources for each node.
+#
+# Single-node: only one node runs everything. The node key MUST match
+# this machine's `hostname` (and the `node:` fields in the workload
+# YAMLs under serial-bridge/pullpiri-yaml/).
+
+nodes:
+  master:
+    # Single node (this machine)
+    available_cpus: [12, 13, 14, 15]
+    max_memory_mb: 31000
+    architecture: "x86_64"
+    location: "local"
+    description: "Single node"
