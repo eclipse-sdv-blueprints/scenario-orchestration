@@ -11,6 +11,10 @@
 # * SPDX-License-Identifier: Apache-2.0
 # ********************************************************************************/
 
+# ${NODE_NAME} is the guest node name. It is replaced by serial-bridge/serial/bridge.py
+# with GUEST_NODE_NAME from test_script/config.env (default: the guest's hostname)
+# before the YAML is sent to Pullpiri.
+
 ---
 apiVersion: v1
 kind: Scenario
@@ -32,17 +36,17 @@ spec:
     - type: plain
   models:
     - name: guest-bridge
-      node: guest
+      node: ${NODE_NAME}
       resources:
         volume:
         network:
     - name: led_timpani_model
-      node: guest
+      node: ${NODE_NAME}
       resources:
         volume:
         network:
     - name: led_normal_model
-      node: guest
+      node: ${NODE_NAME}
       resources:
         volume:
         network:

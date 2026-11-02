@@ -32,6 +32,18 @@ main() {
   [[ -d "$GUEST_NUC_GUEST_DIR" ]] || { err "missing dir: $GUEST_NUC_GUEST_DIR"; exit 1; }
 
   ensure_arduino_lib "Adafruit NeoPixel"
+
+  if [[ -f "$GUEST_ARDUINO_DIR/99-arduino-led.rules" ]]; then
+    info "Apply udev rules for stable Arduino device names"
+    sudo cp "$GUEST_ARDUINO_DIR/99-arduino-led.rules" /etc/udev/rules.d/99-arduino-led.rules
+    sudo udevadm control --reload-rules
+    sudo udevadm trigger
+    sleep 1
+    ls -al /dev/arduino_* 2>/dev/null || warn "/dev/arduino_* not found yet"
+  else
+    warn "99-arduino-led.rules not found: $GUEST_ARDUINO_DIR/99-arduino-led.rules"
+  fi
+
   info "Compile/upload Arduino sketches"
   cd "$GUEST_ARDUINO_DIR"
   bash ./compile.sh

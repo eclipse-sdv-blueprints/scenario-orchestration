@@ -14,12 +14,16 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./owned-state.sh
+source "${SCRIPT_DIR}/owned-state.sh"
+
 MASTER_IP="${1:-}"
 NODE_IP="${2:-}"
 
 if [[ -z "${MASTER_IP}" ]] || [[ -z "${NODE_IP}" ]]; then
 	echo "ERROR: Both MASTER_IP and NODE_IP arguments are required." >&2
-	echo "Usage: $0 MASTER_IP NODE_IP" >&2
+	echo "Usage: $0 MASTER_IP NODE_IP [NODE_NAME]" >&2
 	exit 1
 fi
 
@@ -37,7 +41,11 @@ else
 	exit 1
 fi
 
-NODE_NAME=$(hostname)
+NODE_NAME="${3:-$(hostname)}"
+if [[ ! "${NODE_NAME}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
+	echo "ERROR: Invalid NODE_NAME - '${NODE_NAME}'" >&2
+	exit 1
+fi
 NODE_ROLE="nodeagent"
 NODE_TYPE="vehicle"
 
@@ -52,14 +60,24 @@ else
 fi
 
 AGENT_BINARY_PATH="/opt/pullpiri/nodeagent"
+AGENT_CONFIG_FILE="/etc/pullpiri/nodeagent.yaml"
+AGENT_SERVICE_FILE="/etc/systemd/system/nodeagent.service"
+
+# Record what this install creates or replaces. Existing files are backed up so
+# uninstall-agent.sh can restore them instead of deleting them.
+resiso_claim_dir /opt/pullpiri
+resiso_claim_file "$AGENT_BINARY_PATH"
+resiso_claim_file "$AGENT_CONFIG_FILE"
+resiso_claim_file "$AGENT_SERVICE_FILE"
+
 rm -f "$AGENT_BINARY_PATH"
 mkdir -p /opt/pullpiri
 if [ ! -f "$AGENT_BINARY_PATH" ]; then
 	BINARY_URL="https://github.com/eclipse-pullpiri/pullpiri/releases/latest/download/nodeagent-linux-${SUFFIX}"
 	echo "Downloading binary from ${BINARY_URL}..."
-	curl -L -o nodeagent "${BINARY_URL}"
-	if [ $? -ne 0 ]; then
+	if ! curl -fL -o nodeagent "${BINARY_URL}"; then
 		echo "Error: Failed to download binary from ${BINARY_URL}"
+		rm -f nodeagent
 		exit 1
 	fi
 	mv -f nodeagent /opt/pullpiri/nodeagent
@@ -68,6 +86,7 @@ chmod +x /opt/pullpiri/nodeagent
 echo "Binary installed to /opt/pullpiri/nodeagent"
 
 mkdir -p /etc/pullpiri
+mkdir -p /etc/containers/systemd
 cat > /etc/pullpiri/nodeagent.yaml << EOF
 nodeagent:
   node_name: "${NODE_NAME}"

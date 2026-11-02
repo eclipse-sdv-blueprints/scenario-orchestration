@@ -32,11 +32,14 @@ Two deployment modes are provided.
 | **single_node** | Everything runs on one PC (no SSH) | [single_node/](./single_node) |
 | **multi_node** | Split across master / guest nodes | [multi_node/](./multi_node) |
 
-Each mode shares the same structure.
+Each mode shares the same sub-folder structure. The multi_node structure is
+split into `nuc_master` and `nuc_guest`, each containing the sub-folders that
+belong to that node. The Arduino sketches used by both modes are kept once in
+[common/arduino](./common/arduino).
 
 ```
 <mode>/
-├── arduino/           # Arduino sketches (compile / install)
+├── arduino/           # compile / install scripts and udev rules
 ├── serial-bridge/     # serial <-> KUKSA / Pullpiri bridge, VSS spec, workload YAML
 ├── kuksa-bridge/      # subscribes to the button signal -> controls stress-ng
 ├── led-*-controller/  # LED control containers (timpani / normal)
@@ -82,7 +85,7 @@ cd multi_node/test_script
 
 After running `run_resource_isolation_flow.sh`:
 
-1. **Turn the rotary** -> workload containers are launched.
+1. **Turn the rotary to 120 and press its button** -> workload containers are launched.
    (once the flow detects the databroker log, it proceeds automatically)
 2. **Press the joystick button** -> toggles the CPU load (stress-ng).
 3. **Grafana dashboard** (`http://<node-ip>:3000`) -> compare the two LED periods.

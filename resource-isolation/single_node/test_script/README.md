@@ -20,7 +20,14 @@ test_script/
 ## Prerequisites
 
 - `docker`, `podman`, `arduino-cli` installed on this PC
-- Local `sudo` access (set `SUDO_PASS` in config.env for non-interactive runs)
+- Local `sudo` access. By default sudo prompts once at the start of each flow. For
+  non-interactive runs use passwordless sudo, or export `SUDO_PASS` (it is sent to
+  sudo through stdin, never as a command-line argument)
+- Arduino boards: the udev rules in
+  [../arduino/99-arduino-led.rules](../arduino/99-arduino-led.rules) match boards
+  by USB serial number. Replace every `ATTRS{serial}` value with the serial of
+  your own boards before running `prepare.sh` (find it with
+  `udevadm info -a -n /dev/ttyACM0 | grep '{serial}' -m 1` or `arduino-cli board list`).
 
 ## config.env
 
@@ -28,7 +35,7 @@ Edit only the **USER SETTINGS** section at the top. Defaults cover the rest.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `NODE_NAME` | This machine's node name. Must match the pullpiri nodeagent registration name and the `node:` field in the workload YAML | `hostname` |
+| `NODE_NAME` | This machine's Pullpiri node name. Single source of truth: applied to the nodeagent, the workload YAMLs (`${NODE_NAME}` placeholder, rendered by the serial-bridge), the timpani node config and timpani-n. Allowed characters: `A-Z a-z 0-9 . _ -` | `hostname` |
 | `NODE_IP` | Local IP used by pullpiri apiserver/nodeagent. Empty = auto-detect first non-loopback IP | (auto) |
 | `BASE_DIR` | Path to the `single_node` directory | repo path |
 | `SUDO_PASS` | Local sudo password. Empty = interactive prompt | (empty) |
@@ -43,7 +50,7 @@ Edit only the **USER SETTINGS** section at the top. Defaults cover the rest.
 |--------|------|
 | `preflight/prepare.sh` | Apply udev rules, compile/upload Arduino, build container images (one-time) |
 | `run_resource_isolation_flow.sh` | Start serial-bridge -> install pullpiri -> restart nodeagent -> start monitoring -> run timpani-o container -> wait for databroker log -> install & start timpani-n package |
-| `stop_resource_isolation_flow.sh` | compose down, stop monitoring, remove timpani-o container, uninstall timpani-n package, uninstall pullpiri, clean up containers |
+| `stop_resource_isolation_flow.sh` | compose down, stop monitoring, remove timpani-o container, uninstall timpani-n package, remove the scenario's workload containers, uninstall pullpiri |
 
 ## Test Procedure
 
@@ -64,8 +71,8 @@ Builds images and uploads the Arduino sketches (includes `KUKSA_HOST` auto-setup
 
 The script runs automatically and waits for Arduino input at **Step 6**.
 
-- **Turn the rotary** -> launch workload containers (serial-bridge POSTs the YAML to pullpiri)
-- Once the script detects the databroker log (`api/artifact ... status=200`), it proceeds to **Step 7** (timpani-n) automatically
+- **Turn the rotary to 120 and press its button** -> launch workload containers (serial-bridge POSTs the YAML to pullpiri)
+- Once the script detects the databroker log (`api/artifact ... container-launch.yaml status=200`), it proceeds to **Step 7** (timpani-n) automatically
 
 ### 3. Observe
 
@@ -81,6 +88,20 @@ The script runs automatically and waits for Arduino input at **Step 6**.
 ```
 
 ## Notes
+
+- **Teardown only removes what the flow created.** `install-pullpiri.sh` and
+  `install-agent.sh` record what they create in `/etc/pullpiri/.resource-isolation-state`
+  and back up any pre-existing `settings.yaml`, `nodeagent.yaml`, `nodeagent.service`
+  or `/opt/pullpiri/nodeagent` as `*.resource-isolation.bak`. The uninstall scripts
+  remove only those items and restore the backups, so existing Pullpiri state is
+  kept. The flow uses its own RocksDB directory
+  (`/etc/pullpiri/resource_isolation_rocksdb`); an existing
+  `pullpiri_shared_rocksdb` is never touched. Workload containers are removed by
+  image (`uninstall-workloads.sh`), not with `podman rm --all`.
+- Each teardown step is best-effort: a failed step is reported and the remaining
+  steps still run; the script exits non-zero at the end if any step failed.
+- The Step 6 log watch starts from the moment the run began, so a launch request
+  sent before Step 6 is still detected.
 
 - **timpani-o** runs as a Podman container (image pulled from
   `ghcr.io/mco-piccolo/timpani-o:latest` and launched by

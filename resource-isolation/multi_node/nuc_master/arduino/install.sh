@@ -15,6 +15,8 @@
 set -euo pipefail
 
 FQBN="arduino:renesas_uno:unor4wifi"
+# Sketches are shared between single_node and multi_node.
+SKETCH_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../common/arduino" && pwd)"
 
 resolve_port() {
 	local symlink="$1"
@@ -30,12 +32,12 @@ LED_PORT="$(resolve_port /dev/arduino_led)"
 GEAR_PORT="$(resolve_port /dev/arduino_gear)"
 
 echo "Uploading ardn_stick to ${JOY_PORT} (/dev/arduino_joystick)..."
-arduino-cli upload -p "${JOY_PORT}" --fqbn "${FQBN}" ardn_stick
+arduino-cli upload -p "${JOY_PORT}" --fqbn "${FQBN}" "${SKETCH_DIR}/ardn_stick"
 
 echo "Uploading ardn_led to ${LED_PORT} (/dev/arduino_led)..."
-arduino-cli upload -p "${LED_PORT}" --fqbn "${FQBN}" ardn_led
+arduino-cli upload -p "${LED_PORT}" --fqbn "${FQBN}" "${SKETCH_DIR}/ardn_led"
 
 echo "Uploading ardn_gear to ${GEAR_PORT} (/dev/arduino_gear)..."
-arduino-cli upload -p "${GEAR_PORT}" --fqbn "${FQBN}" ardn_gear
+arduino-cli upload -p "${GEAR_PORT}" --fqbn "${FQBN}" "${SKETCH_DIR}/ardn_gear"
 
 echo "Upload complete!"

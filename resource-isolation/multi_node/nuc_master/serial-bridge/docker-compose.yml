@@ -36,6 +36,9 @@ services:
       # The orchestrator passes MASTER_IP=MASTER_NODE_IP (auto-detected). When run
       # manually without it, falls back to the docker host gateway.
       MASTER_IP: "${MASTER_IP:-host.docker.internal}"
+      # Guest node name substituted for ${NODE_NAME} in pullpiri-yaml/*.yaml. The
+      # orchestrator passes GUEST_NODE_NAME; it must match the guest nodeagent name.
+      NODE_NAME: "${GUEST_NODE_NAME:-}"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

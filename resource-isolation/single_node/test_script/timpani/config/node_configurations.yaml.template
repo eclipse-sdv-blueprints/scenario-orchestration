@@ -12,20 +12,19 @@
 # ********************************************************************************/
 
 # TTRT Global Scheduler - Node Configuration File
-# Defines hardware specs and available resources for each node
+# Defines hardware specs and available resources for each node.
+#
+# Single-node: only one node runs everything. This file is a template:
+# install-timpani-o.sh fills in the node key below from NODE_NAME in
+# test_script/config.env (default: this machine's `hostname`). The same name
+# is used by the nodeagent, the workload YAMLs under
+# serial-bridge/pullpiri-yaml/ and timpani-n, so they always match.
 
 nodes:
-  master:
-    # Master node
+  ${NODE_NAME}:
+    # Single node (this machine)
     available_cpus: [12, 13, 14, 15]
     max_memory_mb: 31000
     architecture: "x86_64"
-    location: "local_master_pc"
-    description: "Master node"
-  guest:
-    # Guest node
-    available_cpus: [12, 13, 14, 15]
-    max_memory_mb: 31114
-    architecture: "x86_64"
-    location: "guest_node"
-    description: "Guest node"
+    location: "local"
+    description: "Single node"

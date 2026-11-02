@@ -15,7 +15,8 @@
 //*******************************************************************************
 // Project : LED Control for TIMPANI signal-based scheduling
 // Board : Arduino Uno R4 WiFi
-// Description : Receives signal from container (TIMPANI-N triggered) and toggles LED
+// Description : Receives ON('1')/OFF('0') state from the container (TIMPANI-N triggered)
+//               and sets the LED accordingly
 //               This device receives RT-scheduled periodic signals
 //*******************************************************************************
 #include <Adafruit_NeoPixel.h>
@@ -51,8 +52,8 @@ void loop() {
     if (Serial.available() > 0) {
         char c = Serial.read();
         if (c == '1') {
-            ledOn = !ledOn;  // Toggle
-            showAll(ledOn ? RED : OFF);
+            ledOn = true;
+            showAll(RED);
         } else if (c == '0') {
             ledOn = false;
             showAll(OFF);

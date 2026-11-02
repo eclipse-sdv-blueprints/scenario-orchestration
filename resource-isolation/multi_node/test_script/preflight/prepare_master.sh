@@ -42,6 +42,7 @@ main() {
   fi
 
   info "Compile/upload Arduino sketches"
+  ensure_arduino_lib "Adafruit NeoPixel"
   cd "$MASTER_ARDUINO_DIR"
   bash ./compile.sh
   bash ./install.sh

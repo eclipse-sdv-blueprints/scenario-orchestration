@@ -11,6 +11,9 @@
 # * SPDX-License-Identifier: Apache-2.0
 # ********************************************************************************/
 
+# ${NODE_NAME} is replaced by serial-bridge/serial/bridge.py with the NODE_NAME
+# value from test_script/config.env before the YAML is sent to Pullpiri.
+
 ---
 apiVersion: v1
 kind: Schedule
@@ -25,7 +28,7 @@ spec:
     release_time: 0
     runtime: 10000
     deadline: 500000
-    node_id: master
+    node_id: ${NODE_NAME}
     max_dmiss: 3
 ---
 apiVersion: v1
@@ -48,17 +51,17 @@ spec:
     - type: plain
   models:
     - name: kuksa-bridge
-      node: master
+      node: ${NODE_NAME}
       resources:
         volume:
         network:
     - name: led_timpani_model
-      node: master
+      node: ${NODE_NAME}
       resources:
         volume:
         network:
     - name: led_normal_model
-      node: master
+      node: ${NODE_NAME}
       resources:
         volume:
         network:

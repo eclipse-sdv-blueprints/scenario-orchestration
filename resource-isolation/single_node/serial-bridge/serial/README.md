@@ -24,6 +24,7 @@ docker compose build
 | `DATABROKER_IP` | `resiso-databroker` | KUKSA Databroker hostname/IP |
 | `DATABROKER_PORT` | `55555` | KUKSA Databroker port |
 | `MASTER_IP` | `127.0.0.1` | Pullpiri apiserver host (single node; the compose file may override it) |
+| `NODE_NAME` | (none, required) | Pullpiri node name. Replaces the `${NODE_NAME}` placeholder in the YAMLs under `pullpiri-yaml/` before they are sent. The orchestrator passes `NODE_NAME` from `config.env` |
 
 ## Serial Ports
 

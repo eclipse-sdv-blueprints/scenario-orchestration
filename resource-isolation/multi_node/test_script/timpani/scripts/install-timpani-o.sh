@@ -19,14 +19,19 @@ set -euo pipefail
 # here (timpani-n is started later, in Step 7 of the resource-isolation flow).
 #
 # Overridable via environment:
-#   NODE_CONFIG_YAML    node_configurations.yaml to mount into the container
+#   MASTER_NODE_NAME    master node name written into the node config (required)
+#   GUEST_NODE_NAME     guest node name written into the node config (required)
+#   NODE_CONFIG_YAML    ready-made node_configurations.yaml to mount instead of
+#                       rendering ../config/node_configurations.yaml.template
 #   TIMPANI_O_IMAGE     container image tag (default ghcr.io/mco-piccolo/timpani-o:latest)
 #   TIMPANI_O_GRPC_PORT gRPC port to publish (default 50052)
 #   TIMPANI_O_DATA_PORT data port to publish (default 7777)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-NODE_CONFIG_YAML="${NODE_CONFIG_YAML:-${SCRIPT_DIR}/../config/node_configurations.yaml}"
+NODE_CONFIG_TEMPLATE="${SCRIPT_DIR}/../config/node_configurations.yaml.template"
+NODE_CONFIG_YAML="${NODE_CONFIG_YAML:-}"
+RENDER_DIR="/run/resource-isolation"
 TIMPANI_O_IMAGE="${TIMPANI_O_IMAGE:-ghcr.io/mco-piccolo/timpani-o:latest}"
 TIMPANI_O_NAME="timpani-o"
 TIMPANI_O_GRPC_PORT="${TIMPANI_O_GRPC_PORT:-50052}"
@@ -39,8 +44,30 @@ die() { echo "[install-timpani-o] ERROR: $*" >&2; exit 1; }
 
 [[ "${EUID}" -eq 0 ]] || die "Please run as root: sudo $0"
 
+# --- render the node config from the template --------------------------------
+render_node_config() {
+    local master="${MASTER_NODE_NAME:-}" guest="${GUEST_NODE_NAME:-}" var
+    for var in master guest; do
+        [[ "${!var}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] \
+            || die "${var^^}_NODE_NAME is empty or invalid ('${!var}'); set it in config.env"
+    done
+    [[ "${master}" != "${guest}" ]] \
+        || die "MASTER_NODE_NAME and GUEST_NODE_NAME must differ (both '${master}')"
+    [[ -f "${NODE_CONFIG_TEMPLATE}" ]] || die "Template not found: ${NODE_CONFIG_TEMPLATE}"
+
+    local content
+    content="$(<"${NODE_CONFIG_TEMPLATE}")"
+    content="${content//\$\{MASTER_NODE_NAME\}/${master}}"
+    content="${content//\$\{GUEST_NODE_NAME\}/${guest}}"
+    install -d -m 0755 "${RENDER_DIR}"
+    NODE_CONFIG_YAML="${RENDER_DIR}/node_configurations.yaml"
+    printf '%s\n' "${content}" > "${NODE_CONFIG_YAML}"
+    log "Rendered ${NODE_CONFIG_YAML} (master='${master}', guest='${guest}')"
+}
+
 # --- pull the image and run the container -----------------------------------
 run_timpani_o() {
+    [[ -n "${NODE_CONFIG_YAML}" ]] || render_node_config
     [[ -f "${NODE_CONFIG_YAML}" ]] || die "Node config not found: ${NODE_CONFIG_YAML}"
 
     log "Pulling image ${TIMPANI_O_IMAGE}..."

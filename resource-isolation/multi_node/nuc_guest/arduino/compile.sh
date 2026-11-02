@@ -13,6 +13,12 @@
 # ********************************************************************************/
 
 # Compile LED Arduino sketches for Guest NUC
+set -euo pipefail
 
-arduino-cli compile --fqbn arduino:renesas_uno:unor4wifi ardn_led_timpani
-arduino-cli compile --fqbn arduino:renesas_uno:unor4wifi ardn_led_normal
+# Sketches are shared between single_node and multi_node.
+SKETCH_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../common/arduino" && pwd)"
+FQBN="arduino:renesas_uno:unor4wifi"
+
+for sketch in ardn_led_timpani ardn_led_normal; do
+	arduino-cli compile --fqbn "${FQBN}" "${SKETCH_DIR}/${sketch}"
+done

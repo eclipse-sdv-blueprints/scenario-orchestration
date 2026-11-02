@@ -62,16 +62,19 @@ See [arduino](./arduino/README.md) for details
      - Invalid direction → RED LED
    - Sends YAML artifact to Pullpiri via HTTP API (`http://<MASTER_IP>:47099/api/artifact`).
      `MASTER_IP` is injected into the `resiso-serial-bridge` container by the
-     orchestrator (auto-detected master IP); it falls back to the docker host
+     orchestrator (`MASTER_NODE_IP` from `config.env`); it falls back to the docker host
      gateway when run manually.
 
 ## Components
 
 ### Arduino Programs
 
-- `ardn_stick/ardn_stick.ino` - Joystick button detection
-- `ardn_led/ardn_led.ino` - LED controller (GREEN/RED/OFF)
-- `ardn_gear/ardn_gear.ino` - Rotary encoder with state machine
+- `../../common/arduino/ardn_stick/ardn_stick.ino` - Joystick button detection
+- `../../common/arduino/ardn_led/ardn_led.ino` - LED controller (GREEN/RED/OFF)
+- `../../common/arduino/ardn_gear/ardn_gear.ino` - Rotary encoder with state machine
+
+The sketches are shared with single_node and live in
+[common/arduino](../../common/arduino).
 
 ### Python Bridge
 
@@ -105,7 +108,7 @@ spec:
     release_time: 0
     runtime: 10000          # 10ms
     deadline: 500000        # 500ms
-    node_id: guest
+    node_id: ${NODE_NAME}   # replaced by bridge.py with GUEST_NODE_NAME (config.env)
     max_dmiss: 3            # Max deadline misses before alert
 ```
 

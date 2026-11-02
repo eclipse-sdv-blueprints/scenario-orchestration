@@ -14,6 +14,10 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./owned-state.sh
+source "${SCRIPT_DIR}/owned-state.sh"
+
 if [ -n "${1:-}" ]; then
 	MASTER_IP="$1"
 else
@@ -38,7 +42,7 @@ podman run -d \
   --name pullpiri-rocksdbservice \
   --user 0:0 \
   -e RUST_LOG="info" \
-  -v /etc/pullpiri/pullpiri_shared_rocksdb:/data:Z \
+  -v "${RESISO_ROCKSDB_DIR}":/data:Z \
   ${ROCKSDB_IMAGE} \
   rocksdbservice --path /data --addr 0.0.0.0 --port 47007
 

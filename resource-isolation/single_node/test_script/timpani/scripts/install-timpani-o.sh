@@ -19,14 +19,18 @@ set -euo pipefail
 # here (timpani-n is started later, in Step 7 of the resource-isolation flow).
 #
 # Overridable via environment:
-#   NODE_CONFIG_YAML    node_configurations.yaml to mount into the container
+#   NODE_NAME           node name written into the node config (required)
+#   NODE_CONFIG_YAML    ready-made node_configurations.yaml to mount instead of
+#                       rendering ../config/node_configurations.yaml.template
 #   TIMPANI_O_IMAGE     container image tag (default ghcr.io/mco-piccolo/timpani-o:latest)
 #   TIMPANI_O_GRPC_PORT gRPC port to publish (default 50052)
 #   TIMPANI_O_DATA_PORT data port to publish (default 7777)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-NODE_CONFIG_YAML="${NODE_CONFIG_YAML:-${SCRIPT_DIR}/../config/node_configurations.yaml}"
+NODE_CONFIG_TEMPLATE="${SCRIPT_DIR}/../config/node_configurations.yaml.template"
+NODE_CONFIG_YAML="${NODE_CONFIG_YAML:-}"
+RENDER_DIR="/run/resource-isolation"
 TIMPANI_O_IMAGE="${TIMPANI_O_IMAGE:-ghcr.io/mco-piccolo/timpani-o:latest}"
 TIMPANI_O_NAME="timpani-o"
 TIMPANI_O_GRPC_PORT="${TIMPANI_O_GRPC_PORT:-50052}"
@@ -39,8 +43,24 @@ die() { echo "[install-timpani] ERROR: $*" >&2; exit 1; }
 
 [[ "${EUID}" -eq 0 ]] || die "Please run as root: sudo $0"
 
+# --- render the node config from the template --------------------------------
+render_node_config() {
+    local name="${NODE_NAME:-}"
+    [[ "${name}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] \
+        || die "NODE_NAME is empty or invalid ('${name}'); set it in config.env"
+    [[ -f "${NODE_CONFIG_TEMPLATE}" ]] || die "Template not found: ${NODE_CONFIG_TEMPLATE}"
+
+    local content
+    content="$(<"${NODE_CONFIG_TEMPLATE}")"
+    install -d -m 0755 "${RENDER_DIR}"
+    NODE_CONFIG_YAML="${RENDER_DIR}/node_configurations.yaml"
+    printf '%s\n' "${content//\$\{NODE_NAME\}/${name}}" > "${NODE_CONFIG_YAML}"
+    log "Rendered ${NODE_CONFIG_YAML} for node '${name}'"
+}
+
 # --- pull the image and run the container -----------------------------------
 run_timpani_o() {
+    [[ -n "${NODE_CONFIG_YAML}" ]] || render_node_config
     [[ -f "${NODE_CONFIG_YAML}" ]] || die "Node config not found: ${NODE_CONFIG_YAML}"
 
     log "Pulling image ${TIMPANI_O_IMAGE}..."

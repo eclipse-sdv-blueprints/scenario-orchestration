@@ -13,8 +13,16 @@
 # ********************************************************************************/
 
 set -euo pipefail
+# Master-side pullpiri runtime install (server, player, master nodeagent).
+# Usage: install-pullpiri.sh [MASTER_IP] [MASTER_NODE_NAME]
+#   MASTER_IP         master node IP (auto-detected from the first NIC if omitted)
+#   MASTER_NODE_NAME  master Pullpiri node name (default: the master's hostname)
+# The guest nodeagent is installed separately by the orchestrator
+# (run_resource_isolation_flow.sh) over its own SSH connection.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./owned-state.sh
+source "${SCRIPT_DIR}/owned-state.sh"
 
 if [ -n "${1:-}" ]; then
 	MASTER_IP="$1"
@@ -22,24 +30,24 @@ else
 	MASTER_IP="$(hostname -I | awk '{print $1}')"
 fi
 
-# Optional guest install arguments
-GUEST_HOST="${2:-}"
-GUEST_PORT="${3:-22}"
-GUEST_USER="${4:-}"
-GUEST_PASS="${5:-}"
-GUEST_SUDO_PASS="${6:-${GUEST_PASS}}"
-GUEST_NODE_IP="${7:-}"
-GUEST_TEST_SCRIPT_DIR="${8:-/home/lge/work/demo/sdv-blueprint/resource-isolation/multi_node/test_script}"
+HOST_NAME="${2:-$(hostname)}"
+if [[ ! "${HOST_NAME}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
+	echo "ERROR: Invalid MASTER_NODE_NAME - '${HOST_NAME}'" >&2
+	exit 1
+fi
 
-HOST_NAME="$(hostname)"
+# Existing Pullpiri state under /etc/pullpiri is preserved: this flow uses its
+# own RocksDB directory and backs up any pre-existing settings.yaml. See
+# owned-state.sh; uninstall-pullpiri.sh removes or restores only these items.
+resiso_claim_dir "${RESISO_ROCKSDB_DIR}"
+mkdir -p "${RESISO_ROCKSDB_DIR}"
+chown 1001:1001 "${RESISO_ROCKSDB_DIR}"
 
-mkdir -p /etc/pullpiri/pullpiri_shared_rocksdb
-chown 1001:1001 /etc/pullpiri/pullpiri_shared_rocksdb
+resiso_claim_dir "${RESISO_LOG_DIR}"
+mkdir -p "${RESISO_LOG_DIR}"
 
-mkdir -p /etc/pullpiri
-mkdir -p /run/pullpirilog
-
-cat > /etc/pullpiri/settings.yaml << EOF
+resiso_claim_file "${RESISO_SETTINGS_FILE}"
+cat > "${RESISO_SETTINGS_FILE}" << EOF
 host:
   name: ${HOST_NAME}
   ip: ${MASTER_IP}
@@ -55,32 +63,4 @@ bash "${SCRIPT_DIR}/pullpiri-player.sh" "${MASTER_IP}"
 
 sleep 1
 
-bash "${SCRIPT_DIR}/install-agent.sh" "${MASTER_IP}" "${MASTER_IP}"
-
-if [[ -n "${GUEST_HOST}" && -n "${GUEST_USER}" ]]; then
-  echo "Installing nodeagent on guest node (${GUEST_USER}@${GUEST_HOST}:${GUEST_PORT})..."
-
-  if command -v sshpass >/dev/null 2>&1 && [[ -n "${GUEST_PASS}" ]]; then
-    sshpass -p "${GUEST_PASS}" ssh -o StrictHostKeyChecking=accept-new -o LogLevel=ERROR -p "${GUEST_PORT}" "${GUEST_USER}@${GUEST_HOST}" \
-      "set -e; \
-       node_ip='${GUEST_NODE_IP}'; \
-       if [[ -z \"\$node_ip\" ]]; then \
-         node_ip=\$(ip -4 route get '${MASTER_IP}' 2>/dev/null | awk '{for(i=1;i<=NF;i++) if(\$i==\"src\") {print \$(i+1); exit}}'); \
-       fi; \
-       if [[ -z \"\$node_ip\" ]]; then \
-         node_ip=\$(hostname -I | awk '{print \$1}'); \
-       fi; \
-       printf '%s\n' '${GUEST_SUDO_PASS}' | sudo -S -p '' bash '${GUEST_TEST_SCRIPT_DIR}/pullpiri/scripts/install-agent.sh' '${MASTER_IP}' \"\$node_ip\""
-  else
-    ssh -o StrictHostKeyChecking=accept-new -o LogLevel=ERROR -p "${GUEST_PORT}" "${GUEST_USER}@${GUEST_HOST}" \
-      "set -e; \
-       node_ip='${GUEST_NODE_IP}'; \
-       if [[ -z \"\$node_ip\" ]]; then \
-         node_ip=\$(ip -4 route get '${MASTER_IP}' 2>/dev/null | awk '{for(i=1;i<=NF;i++) if(\$i==\"src\") {print \$(i+1); exit}}'); \
-       fi; \
-       if [[ -z \"\$node_ip\" ]]; then \
-         node_ip=\$(hostname -I | awk '{print \$1}'); \
-       fi; \
-       printf '%s\n' '${GUEST_SUDO_PASS}' | sudo -S -p '' bash '${GUEST_TEST_SCRIPT_DIR}/pullpiri/scripts/install-agent.sh' '${MASTER_IP}' \"\$node_ip\""
-  fi
-fi
+bash "${SCRIPT_DIR}/install-agent.sh" "${MASTER_IP}" "${MASTER_IP}" "${HOST_NAME}"

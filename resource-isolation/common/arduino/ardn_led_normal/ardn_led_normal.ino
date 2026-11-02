@@ -15,7 +15,8 @@
 //*******************************************************************************
 // Project : LED Control for normal sleep-based scheduling
 // Board : Arduino Uno R4 WiFi
-// Description : Receives signal from container (sleep-based) and toggles LED
+// Description : Receives ON('1')/OFF('0') state from the container (sleep-based)
+//               and sets the LED accordingly
 //               This device runs without TIMPANI RT scheduling
 //*******************************************************************************
 #include <Adafruit_NeoPixel.h>
@@ -51,8 +52,8 @@ void loop() {
     if (Serial.available() > 0) {
         char c = Serial.read();
         if (c == '1') {
-            ledOn = !ledOn;
-            showAll(ledOn ? GREEN : OFF);
+            ledOn = true;
+            showAll(GREEN);
         } else if (c == '0') {
             ledOn = false;
             showAll(OFF);

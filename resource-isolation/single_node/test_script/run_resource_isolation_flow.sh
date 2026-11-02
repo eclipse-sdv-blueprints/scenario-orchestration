@@ -24,28 +24,35 @@ source "${SCRIPT_DIR}/lib/utils.sh"
 
 main() {
   require_cmd docker
+  sudo_init
 
   NODE_IP="$(detect_node_ip)"
   [[ -n "${NODE_IP}" ]] || { err "Could not determine local node IP."; exit 1; }
+  validate_node_name NODE_NAME "${NODE_NAME}"
   info "Node: name='${NODE_NAME}' ip='${NODE_IP}'"
+
+  # Taken before anything starts: the Step 6 log watch looks for log lines from
+  # this moment on, so a launch request sent during Steps 1-5 is still seen.
+  RUN_START_TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
   info "Step 1) docker compose up -d"
   # apiserver binds to NODE_IP (settings.yaml host.ip); pass it so the serial-bridge
   # reaches the apiserver on the same address instead of the docker host gateway.
-  ( cd "${SERIAL_BRIDGE_DIR}" && MASTER_IP="${NODE_IP}" docker compose up -d )
+  # NODE_NAME is rendered into the workload YAMLs by the serial-bridge.
+  ( cd "${SERIAL_BRIDGE_DIR}" && MASTER_IP="${NODE_IP}" NODE_NAME="${NODE_NAME}" docker compose up -d )
 
   info "Step 2) pullpiri runtime install"
-  run_sudo bash "${TEST_SCRIPT_DIR}/pullpiri/scripts/install-pullpiri.sh" "${NODE_IP}"
+  run_sudo bash "${TEST_SCRIPT_DIR}/pullpiri/scripts/install-pullpiri.sh" "${NODE_IP}" "${NODE_NAME}"
 
   info "Step 3) restart nodeagent.service"
   run_sudo systemctl restart nodeagent.service
 
-  info "Step 4) start monitoring script (background)"
-  ( cd "${MONITORING_DIR}" && nohup ./start.sh > monitoring_start.log 2>&1 & echo monitoring_started )
+  info "Step 4) start monitoring script"
+  ( cd "${MONITORING_DIR}" && ./start.sh )
 
   info "Step 5) start timpani-o (container)"
   # Load the timpani-o image and run it as a container (see install-timpani-o.sh).
-  run_sudo bash "${TEST_SCRIPT_DIR}/timpani/scripts/install-timpani-o.sh"
+  run_sudo env NODE_NAME="${NODE_NAME}" bash "${TEST_SCRIPT_DIR}/timpani/scripts/install-timpani-o.sh"
   info "Step 5) timpani-o container started (logs: sudo podman logs -f timpani-o)"
 
   echo
@@ -54,7 +61,7 @@ main() {
   echo "       (regex: ${DATABROKER_LOG_REGEX})"
 
   set +e
-  wait_for_container_log "${DATABROKER_CONTAINER}" "${DATABROKER_LOG_REGEX}" "${WAIT_LOG_TIMEOUT_SEC}"
+  wait_for_container_log "${DATABROKER_CONTAINER}" "${DATABROKER_LOG_REGEX}" "${WAIT_LOG_TIMEOUT_SEC}" "${RUN_START_TS}"
   step6_rc=$?
   set -e
 

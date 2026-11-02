@@ -13,8 +13,12 @@
 # ********************************************************************************/
 
 # Compile LED Arduino sketches for the single node
-arduino-cli compile --fqbn arduino:renesas_uno:unor4wifi ardn_stick
-arduino-cli compile --fqbn arduino:renesas_uno:unor4wifi ardn_led
-arduino-cli compile --fqbn arduino:renesas_uno:unor4wifi ardn_gear
-arduino-cli compile --fqbn arduino:renesas_uno:unor4wifi ardn_led_timpani
-arduino-cli compile --fqbn arduino:renesas_uno:unor4wifi ardn_led_normal
+set -euo pipefail
+
+# Sketches are shared between single_node and multi_node.
+SKETCH_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../common/arduino" && pwd)"
+FQBN="arduino:renesas_uno:unor4wifi"
+
+for sketch in ardn_stick ardn_led ardn_gear ardn_led_timpani ardn_led_normal; do
+	arduino-cli compile --fqbn "${FQBN}" "${SKETCH_DIR}/${sketch}"
+done

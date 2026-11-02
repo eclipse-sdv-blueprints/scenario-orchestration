@@ -14,10 +14,14 @@
 
 set -euo pipefail
 # Single-node pullpiri runtime install.
-# Usage: install-pullpiri.sh [NODE_IP]
-#   NODE_IP  local node IP (auto-detected from the first NIC if omitted)
+# Usage: install-pullpiri.sh [NODE_IP] [NODE_NAME]
+#   NODE_IP    local node IP (auto-detected from the first NIC if omitted)
+#   NODE_NAME  Pullpiri node name (default: this machine's hostname); must match
+#              the name used in the workload YAMLs and the timpani node config
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./owned-state.sh
+source "${SCRIPT_DIR}/owned-state.sh"
 
 if [ -n "${1:-}" ]; then
 	NODE_IP="$1"
@@ -25,15 +29,24 @@ else
 	NODE_IP="$(hostname -I | awk '{print $1}')"
 fi
 
-HOST_NAME="$(hostname)"
+HOST_NAME="${2:-$(hostname)}"
+if [[ ! "${HOST_NAME}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
+	echo "ERROR: Invalid NODE_NAME - '${HOST_NAME}'" >&2
+	exit 1
+fi
 
-mkdir -p /etc/pullpiri/pullpiri_shared_rocksdb
-chown 1001:1001 /etc/pullpiri/pullpiri_shared_rocksdb
+# Existing Pullpiri state under /etc/pullpiri is preserved: this flow uses its
+# own RocksDB directory and backs up any pre-existing settings.yaml. See
+# owned-state.sh; uninstall-pullpiri.sh removes or restores only these items.
+resiso_claim_dir "${RESISO_ROCKSDB_DIR}"
+mkdir -p "${RESISO_ROCKSDB_DIR}"
+chown 1001:1001 "${RESISO_ROCKSDB_DIR}"
 
-mkdir -p /etc/pullpiri
-mkdir -p /run/pullpirilog
+resiso_claim_dir "${RESISO_LOG_DIR}"
+mkdir -p "${RESISO_LOG_DIR}"
 
-cat > /etc/pullpiri/settings.yaml << EOF
+resiso_claim_file "${RESISO_SETTINGS_FILE}"
+cat > "${RESISO_SETTINGS_FILE}" << EOF
 host:
   name: ${HOST_NAME}
   ip: ${NODE_IP}
@@ -50,4 +63,4 @@ bash "${SCRIPT_DIR}/pullpiri-player.sh" "${NODE_IP}"
 sleep 1
 
 # Single-node: the nodeagent runs on this same machine.
-bash "${SCRIPT_DIR}/install-agent.sh" "${NODE_IP}" "${NODE_IP}"
+bash "${SCRIPT_DIR}/install-agent.sh" "${NODE_IP}" "${NODE_IP}" "${HOST_NAME}"

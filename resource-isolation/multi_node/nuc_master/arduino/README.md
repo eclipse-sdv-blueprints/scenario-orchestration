@@ -61,7 +61,9 @@ The following library needs to be installed to use LED.
 arduino-cli lib install "Adafruit NeoPixel"
 ```
 
-Run `compile.sh` to compile. The `.ino` filename must match the folder name for compilation.
+Run `compile.sh` to compile. The sketches are shared with single_node and live in
+[common/arduino](../../../common/arduino). The `.ino` filename must match the
+folder name for compilation.
 
 ```bash
 ./compile.sh

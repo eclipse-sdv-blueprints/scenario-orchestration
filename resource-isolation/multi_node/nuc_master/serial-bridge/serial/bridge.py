@@ -18,6 +18,7 @@ import queue
 import json
 import time
 import os
+import re
 import requests
 
 from kuksa_client import KuksaClientThread
@@ -49,6 +50,19 @@ def databroker_worker(client, q, stop_event):
             print(f"Databroker send error: {e}", file=sys.stderr)
         q.task_done()
 
+def render_yaml(body: str) -> str:
+    """Replace the ${NODE_NAME} placeholder with the guest's Pullpiri node name.
+
+    NODE_NAME is set by the orchestrator (GUEST_NODE_NAME in config.env) and must
+    equal the name the guest nodeagent and timpani-n register with.
+    """
+    node_name = os.environ.get('NODE_NAME', '')
+    if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]*', node_name):
+        raise ValueError(
+            f"NODE_NAME is empty or invalid ({node_name!r}); set GUEST_NODE_NAME in "
+            "test_script/config.env and start the bridge through run_resource_isolation_flow.sh")
+    return body.replace('${NODE_NAME}', node_name)
+
 def send_yaml_artifact(yaml_path: str):
     # Master's Pullpiri apiserver address. Provided via MASTER_IP (the compose file
     # passes the auto-detected master IP); falls back to the docker host gateway.
@@ -56,7 +70,7 @@ def send_yaml_artifact(yaml_path: str):
     url = f'http://{master_ip}:47099/api/artifact'
     try:
         with open(yaml_path, 'r', encoding='utf-8') as f:
-            body = f.read()
+            body = render_yaml(f.read())
         headers = {'Content-Type': 'text/plain'}
         response = requests.post(url, headers=headers, data=body, timeout=5)
         print(f"[POST] {url} yaml={os.path.basename(yaml_path)} status={response.status_code}")

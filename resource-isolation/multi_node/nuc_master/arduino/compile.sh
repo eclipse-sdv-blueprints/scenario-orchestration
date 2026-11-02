@@ -1,3 +1,4 @@
+#!/bin/bash
 # /********************************************************************************
 # * Copyright (c) 2026 Contributors to the Eclipse Foundation
 # *
@@ -11,6 +12,13 @@
 # * SPDX-License-Identifier: Apache-2.0
 # ********************************************************************************/
 
-arduino-cli compile --fqbn arduino:renesas_uno:unor4wifi ardn_stick
-arduino-cli compile --fqbn arduino:renesas_uno:unor4wifi ardn_led
-arduino-cli compile --fqbn arduino:renesas_uno:unor4wifi ardn_gear
+# Compile LED Arduino sketches for Master NUC
+set -euo pipefail
+
+# Sketches are shared between single_node and multi_node.
+SKETCH_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../common/arduino" && pwd)"
+FQBN="arduino:renesas_uno:unor4wifi"
+
+for sketch in ardn_stick ardn_led ardn_gear; do
+	arduino-cli compile --fqbn "${FQBN}" "${SKETCH_DIR}/${sketch}"
+done

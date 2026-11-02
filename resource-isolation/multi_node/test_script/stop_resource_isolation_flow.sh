@@ -28,22 +28,31 @@ main() {
   resolve_auth_mode
   info "Auth mode: USE_SSHPASS=$USE_SSHPASS"
 
+  # Every step is best-effort: a failure is reported but does not stop the
+  # remaining cleanup. The script exits non-zero at the end if any step failed.
   info "Step 1) master: docker compose down"
-  on_master "cd '$MASTER_SERIAL_BRIDGE_DIR'; docker compose down"
+  run_step "master docker compose down" on_master "cd '$MASTER_SERIAL_BRIDGE_DIR'; docker compose down"
 
   info "Step 2) guest: monitoring stop.sh"
-  on_guest "cd '$GUEST_MONITORING_DIR'; ./stop.sh"
+  run_step "guest monitoring stop" on_guest "cd '$GUEST_MONITORING_DIR'; ./stop.sh"
 
   info "Step 3) stop timpani (master: timpani-o container, guest: timpani-n package)"
-  on_master_sudo "bash '$MASTER_TEST_SCRIPT_DIR/timpani/scripts/uninstall-timpani-o.sh'"
-  on_guest_sudo  "bash '$GUEST_TEST_SCRIPT_DIR/timpani/scripts/uninstall-timpani-n.sh'"
+  run_step "master uninstall-timpani-o" on_master_sudo "bash '$MASTER_TEST_SCRIPT_DIR/timpani/scripts/uninstall-timpani-o.sh'"
+  run_step "guest uninstall-timpani-n"  on_guest_sudo  "bash '$GUEST_TEST_SCRIPT_DIR/timpani/scripts/uninstall-timpani-n.sh'"
 
-  info "Step 4) master: pullpiri runtime uninstall script"
-  on_master_sudo "bash '$MASTER_TEST_SCRIPT_DIR/pullpiri/scripts/uninstall-pullpiri.sh' '$GUEST_HOST' '$GUEST_PORT' '$GUEST_USER' '$GUEST_PASS' '$GUEST_SUDO_PASS' '$GUEST_TEST_SCRIPT_DIR'"
+  info "Step 4) guest: remove scenario workload containers (only the scenario's own images)"
+  run_step "guest uninstall-workloads" on_guest_sudo "bash '$GUEST_TEST_SCRIPT_DIR/pullpiri/scripts/uninstall-workloads.sh'"
 
-  info "Step 5) guest: podman rm -f --all"
-  on_guest_sudo "podman rm -f --all || true"
+  info "Step 5) pullpiri runtime uninstall (guest nodeagent, then master)"
+  # Run from here over the guest's own SSH connection, so no guest credentials
+  # are ever handed to the master.
+  run_step "guest uninstall-agent" on_guest_sudo "bash '$GUEST_TEST_SCRIPT_DIR/pullpiri/scripts/uninstall-agent.sh'"
+  run_step "master uninstall-pullpiri" on_master_sudo "bash '$MASTER_TEST_SCRIPT_DIR/pullpiri/scripts/uninstall-pullpiri.sh'"
 
+  if [[ ${TEARDOWN_FAILURES} -gt 0 ]]; then
+    err "Teardown finished with ${TEARDOWN_FAILURES} failed step(s)."
+    exit 1
+  fi
   info "Teardown done."
 }
 

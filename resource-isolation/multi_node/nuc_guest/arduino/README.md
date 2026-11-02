@@ -14,6 +14,8 @@ arduino/
 ├── 99-arduino-led.rules   # udev rules: stable /dev symlinks per board
 ├── compile.sh             # compile both sketches
 ├── install.sh             # upload both sketches to their boards
+
+../../../common/arduino/   # shared sketches (also used by single_node)
 ├── ardn_led_timpani/      # TIMPANI signal-based LED sketch
 └── ardn_led_normal/       # normal sleep-based LED sketch
 ```

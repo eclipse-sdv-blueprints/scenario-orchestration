@@ -26,4 +26,8 @@ die() { echo "[uninstall-timpani] ERROR: $*" >&2; exit 1; }
 log "Removing container 'timpani-o'"
 podman rm -f "timpani-o" 2>/dev/null || true
 
+# Rendered node config created by install-timpani-o.sh (only this file/dir).
+rm -f /run/resource-isolation/node_configurations.yaml
+rmdir /run/resource-isolation 2>/dev/null || true
+
 log "Done"
