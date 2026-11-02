@@ -54,6 +54,8 @@
             echo "✓ CPU Load started (forked, $PROC_COUNT processes)"
         else
             echo "✗ Failed to start stress-ng (no processes found)"
+            # Non-zero so the caller does not mark the workload as running.
+            exit 1
         fi
     fi
 }
